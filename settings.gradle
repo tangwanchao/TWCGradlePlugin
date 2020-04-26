@@ -1,0 +1,3 @@
+rootProject.name='TWCGradlePlugin'
+include ':app'
+include ':protectModule'
