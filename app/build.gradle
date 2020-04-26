@@ -1,7 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
-apply plugin: 'me.twc.protect.plugin'
 android {
     compileSdkVersion 29
     buildToolsVersion "29.0.2"
