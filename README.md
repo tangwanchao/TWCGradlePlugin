@@ -6,14 +6,15 @@
 
 该插件适合需要多渠道打包或 360 加固的人使用
 
-## 所需环境及配置
+## 所需环境及第三方 jar
 1. Java 环境
 2. [360加固宝及其账号](https://jiagu.360.cn/#/global/index)
 3. [VasDolly jar](https://github.com/Tencent/VasDolly)
 
 ## 功能
-1.360 加固   
-2.VasDolly 多渠道打包
+1. 360 加固   
+2. VasDolly 多渠道打包
+3. 支持 productFlavors 配置
 
 ## 使用
 
@@ -56,4 +57,5 @@ buildApkConfig {
 
 ## 注意事项
 
-1. 如果添加插件后添加 PATH 环境，需要重启 AndroidStudio
+1. 如果添加插件后添加 PATH 环境，需要重启 AndroidStudio   
+2. 签名读取的是 signingConfigs.release 配置,如果没有该配置可能无法正常工作
