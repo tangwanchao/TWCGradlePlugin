@@ -94,6 +94,12 @@ class BuildApkPlugin implements Plugin<Project> {
                 def outputJson = new JsonSlurper().parse(new File("$assembleReleaseOutputDir/output.json")) as ArrayList
                 def inputApkName = (outputJson.get(0) as Map).get("path") as String
                 def inputApkPath = "${assembleReleaseOutputDir}/$inputApkName"
+                if (buildApkConfig.appName != null){
+                    File renameFile = new File("${assembleReleaseOutputDir}/${buildApkConfig.appName}.apk")
+                    new File(inputApkPath).renameTo(renameFile)
+                    inputApkName = renameFile.name
+                    inputApkPath = renameFile.path
+                }
                 def useProtect = buildApkConfig.use360Protect()
                 def useChannels = buildApkConfig.useChannels()
                 if (!useChannels && !useProtect) {
@@ -126,11 +132,15 @@ class BuildApkPlugin implements Plugin<Project> {
                     if (useProtect){
                         def needSignApkFile = protectDir.listFiles()[0]
                         def zipOutApkFilePath = "${zipDir.path}/${needSignApkFile.name}"
-                        def signedApkFilePath = "${signDir.path}/${needSignApkFile.name.replace(".apk","_sign.apk")}"
+                        def signedApkFilePath = "${signDir.path}/${inputApkName.replace(".apk","_protect_sign.apk")}"
                         zipalign(project,needSignApkFile.path,zipOutApkFilePath)
                         signApk(project,releaseSignConfig,zipOutApkFilePath,signedApkFilePath)
                     }else{
                         println("未使用加固,跳过重新签名流程,将使用原始 apk 进行多渠道打包")
+                        File renameFile = new File(inputApkPath.replace(".apk","_sign.apk"))
+                        new File(inputApkPath).renameTo(renameFile)
+                        inputApkName = renameFile.name
+                        inputApkPath = renameFile.path
                     }
                     println("签名流程结束---")
 

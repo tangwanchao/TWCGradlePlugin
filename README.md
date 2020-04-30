@@ -51,6 +51,8 @@ buildApkConfig {
     channels ''
     // VasDolly jar 路径
     jarVasDollyPath ''
+    // app 名字,可选
+    appName ''
 }
 ```
 3. sync，之后 gradle 工具窗口将会出现相关任务
