@@ -61,102 +61,194 @@ class BuildApkPlugin implements Plugin<Project> {
      * @param project
      * @param taskName
      */
-    private static void createBuildApkTask(Project project,@NotNull String productFlavorName) {
+    private static void createBuildApkTask(Project project, @NotNull String productFlavorName) {
         def productFlavorNameUpperCase
-        if (productFlavorName.length() == 0){
+        if (productFlavorName.length() == 0) {
             productFlavorNameUpperCase = ""
-        }else if (productFlavorName.length() == 1){
+        } else if (productFlavorName.length() == 1) {
             productFlavorNameUpperCase = "${productFlavorName.toUpperCase()}"
-        }else{
-            productFlavorNameUpperCase = "${productFlavorName.substring(0,1).toUpperCase()}${productFlavorName.substring(1)}"
+        } else {
+            productFlavorNameUpperCase = "${productFlavorName.substring(0, 1).toUpperCase()}${productFlavorName.substring(1)}"
         }
         project.task("build${productFlavorNameUpperCase}Apks") {
             dependsOn("assemble${productFlavorNameUpperCase}Release")
             group 'twc'
             doLast {
+                // 获取签名配置
                 def releaseSignConfig = getReleaseSignConfig(project)
                 if (releaseSignConfig == null) {
                     throw new RuntimeException("你应该在 build.gradle(app) 配置 signingConfigs 并添加 release 配置")
                 }
+                // 获取构建 apk 配置
                 def buildApkConfig = project?.getExtensions()?.findByType(BuildApkConfig.class)
-                if (!buildApkConfig.check()) {
-                    throw new RuntimeException("你应该在 build.gradle(app) 配置 buildApkConfig")
-                }
 
+                // 获取 assembleRelease apk 输出文件夹
                 def assembleReleaseOutputDir
-                if (productFlavorName.length() == 0){
+                if (productFlavorName.length() == 0) {
                     assembleReleaseOutputDir = "${project.buildDir.path}/outputs/apk/release"
-                }else{
+                } else {
                     assembleReleaseOutputDir = "${project.buildDir.path}/outputs/apk/${productFlavorName}/release"
                 }
 
+
                 def outputJson = new JsonSlurper().parse(new File("$assembleReleaseOutputDir/output.json")) as ArrayList
                 def inputApkName = (outputJson.get(0) as Map).get("path") as String
+                def inputApkPath = "${assembleReleaseOutputDir}/$inputApkName"
+                def useProtect = buildApkConfig.use360Protect()
+                def useChannels = buildApkConfig.useChannels()
+                if (!useChannels && !useProtect) {
+                    throw new RuntimeException("你在干啥?多渠道打包功能和加固功能都不使用?")
+                }
 
-                def outputDirPath = "${assembleReleaseOutputDir}/channelApks"
+                def twcDirPath = "${assembleReleaseOutputDir}/twc"
                 // 删除已有文件夹
-                new File(outputDirPath)?.deleteDir()
-                new File(outputDirPath)?.mkdir()
-                // 执行加固-登录360加固保
-                println("开始登陆加固宝---")
-                project.exec {
-                    executable = 'java'
-                    args = ['-jar', buildApkConfig.getJarPath(),
-                            '-login', buildApkConfig.getAccount(), buildApkConfig.getPassword()]
+                new File(twcDirPath)?.deleteDir()
+                // 创建新文件夹
+                def twcDir = new File(twcDirPath)
+                twcDir.mkdir()
+                def protectDir = new File("protect", twcDir)
+                protectDir.mkdir()
+                def zipDir = new File("zip", twcDir)
+                zipDir.mkdir()
+                def signDir = new File("signs", twcDir)
+                signDir.mkdir()
 
-                }
-                println("登陆加固宝成功---")
-                println("开始导入签名信息---")
-                // 执行加固-导入签名信息
-                project.exec {
-                    executable = 'java'
-                    args = ['-jar', buildApkConfig.getJarPath(),
-                            '-importsign', releaseSignConfig.get("storeFile"), releaseSignConfig.get("storePassword"), releaseSignConfig.get("keyAlias"), releaseSignConfig.get("keyPassword")]
-                }
-                // 执行加固-导入渠道信息
-                if (buildApkConfig.getJarPath() != null){
-                    println("开始导入渠道信息---")
-                    project.exec {
-                        executable = 'java'
-                        args = ['-jar', buildApkConfig.getJarPath(),
-                                '-importmulpkg', buildApkConfig.getChannelFilePath()]
+                try {
+                    println("加固流程开始---")
+                    if (useProtect) {
+                        protect(project, buildApkConfig, inputApkPath, protectDir.path)
+                    }else{
+                        println("跳过加固")
                     }
-                    println("导入渠道信息成功---")
-                }else{
-                    println("跳过多渠道配置---")
-                }
+                    println("加固流程完成---")
 
+                    println("签名流程开始---")
+                    if (useProtect){
+                        def needSignApkFile = protectDir.listFiles()[0]
+                        def zipOutApkFilePath = "${zipDir.path}/${needSignApkFile.name}"
+                        def signedApkFilePath = "${signDir.path}/${needSignApkFile.name.replace(".apk","_sign.apk")}"
+                        zipalign(project,needSignApkFile.path,zipOutApkFilePath)
+                        signApk(project,releaseSignConfig,zipOutApkFilePath,signedApkFilePath)
+                    }else{
+                        println("未使用加固,跳过重新签名流程,将使用原始 apk 进行多渠道打包")
+                    }
+                    println("签名流程结束---")
 
-                // 执行加固-查看360加固签名信息
-                project.exec {
-                    executable = 'java'
-                    args = ['-jar', buildApkConfig.getJarPath(),
-                            '-showsign']
-                }
+                    println("多渠道打包流程开始---")
+                    if (useChannels) {
+                        def channelsInputApkPath
+                        if (useProtect) {
+                            channelsInputApkPath = signDir.listFiles()[0].path
+                        } else {
+                            channelsInputApkPath = inputApkPath
+                        }
+                        channels(project, buildApkConfig, channelsInputApkPath,twcDir.path)
+                    } else {
+                        println("跳过多渠道打包---")
+                        def signedApkFile = signDir.listFiles()[0]
+                        if(!signedApkFile.renameTo(new File(signedApkFile.name,twcDir))){
+                            throw new RuntimeException("移动文件失败")
+                        }
+                    }
+                    println("多渠道打包流程完成---")
 
-                // 执行加固-查看360加固渠道信息
-                project.exec {
-                    executable = 'java'
-                    args = ['-jar', buildApkConfig.getJarPath(),
-                            '-showmulpkg']
+                } finally {
+                    protectDir?.deleteDir()
+                    signDir?.deleteDir()
+                    zipDir?.deleteDir()
                 }
-                // 执行加固-初始化加固服务配置,后面可不带参数
-                project.exec {
-                    executable = 'java'
-                    args = ['-jar', buildApkConfig.getJarPath(),
-                            '-config']
-                }
-                // 执行加固
-                project.exec {
-                    executable = 'java'
-                    args = ['-jar', buildApkConfig.getJarPath(),
-                            '-jiagu', "${assembleReleaseOutputDir}/$inputApkName", outputDirPath, '-autosign','-automulpkg']
-                }
-                println("加固完成---")
             }
         }
     }
 
+    /**
+     * 执行 360 加固
+     * @param project project
+     * @param config BuildApkConfig
+     * @param inputApkPath 需要加固的 apk
+     * @param outputDirPath 加固后输出文件夹路径
+     */
+    private static void protect(Project project, BuildApkConfig config, String inputApkPath, String outputDirPath) {
+        println("执行加固-登录360加固保")
+        project.exec {
+            executable = 'java'
+            args = ['-jar', config.getJarProtectPath(),
+                    '-login', config.getAccount(), config.getPassword()]
+
+        }
+        println("执行加固-登录360加固保成功")
+        println("执行加固-初始化配置")
+        project.exec {
+            executable = 'java'
+            args = ['-jar', config.getJarProtectPath(),
+                    '-config']
+        }
+        println("执行加固-初始化配置成功")
+        println("执行加固-构建加固后 apk")
+        project.exec {
+            executable = 'java'
+            args = ['-jar', config.getJarProtectPath(),
+                    '-jiagu', inputApkPath, outputDirPath]
+        }
+        println("执行加固-构建加固后 apk 成功")
+    }
+
+    /**
+     * 多渠道打包
+     * @param project
+     * @param config
+     * @param inputApkPath 需要多渠道打包的原始 apk
+     * @param outputDirPath 多渠道打包输出文件夹路径
+     */
+    private static void channels(Project project, BuildApkConfig config, String inputApkPath, String outputDirPath) {
+        println("开始 VasDolly 多渠道打包---")
+        println("渠道信息: ${config.getChannels()}")
+        project.exec {
+            executable = 'java'
+            args = ['-jar', config.getJarVasDollyPath(),
+                    "put","-c", config.getChannels(), inputApkPath, outputDirPath]
+        }
+        println("VasDolly 多渠道打包完成---")
+    }
+
+
+    /**
+     *  zipalign 对齐
+     */
+    private static void zipalign(Project project, String inputApkPath, String outputApkPath) {
+        project.exec {
+            executable = 'zipalign'
+            args = ['-f', '-p', 4,
+                    inputApkPath, outputApkPath]
+        }
+        project.exec {
+            executable = 'zipalign'
+            args = ['-c', 4, outputApkPath]
+        }
+    }
+
+    /**
+     * 对 apk 进行签名
+     */
+    private static signApk(Project project, Map signConfig, String inputApkPath, String outputApkPath) {
+        project.exec {
+            executable = 'apksigner'
+            args = ['sign',
+                    '--v1-signing-enabled',signConfig.get("v1SigningEnabled"),
+                    '--v2-signing-enabled',signConfig.get("v2SigningEnabled"),
+                    '--ks',signConfig.get("storeFile"),
+                    '--ks-pass',"pass:${signConfig.get("storePassword")}",
+                    '--ks-key-alias',signConfig.get("keyAlias"),
+                    '--key-pass',"pass:${signConfig.get("keyPassword")}",
+                    '--out',outputApkPath,
+                    inputApkPath]
+        }
+        project.exec {
+            executable = 'apksigner'
+            args = ['verify',
+                    outputApkPath]
+        }
+    }
 
     /**
      * @param project project
