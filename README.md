@@ -1,5 +1,4 @@
 [![](https://jitpack.io/v/tangwanchao/TWCGradlePlugin.svg)](https://jitpack.io/#tangwanchao/TWCGradlePlugin)
-
 ---
 
 
