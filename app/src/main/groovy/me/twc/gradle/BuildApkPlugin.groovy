@@ -1,5 +1,7 @@
 package me.twc.gradle
 
+import com.android.build.gradle.BaseExtension
+import com.android.build.gradle.internal.dsl.ProductFlavor
 import groovy.json.JsonSlurper
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -24,13 +26,10 @@ class BuildApkPlugin implements Plugin<Project> {
      */
     private static List<String> getProductFlavorNameList(Project project) {
         def result = new ArrayList<String>()
-        def androidProperties = project?.getExtensions()?.getByName("android")?.properties
-        androidProperties.forEach { k, v ->
-            if (k == "productFlavors") {
-                (v as Set).forEach { productFlavorsValue ->
-                    result.add(productFlavorsValue.properties.get("name"))
-                }
-            }
+        def androidExt = project?.getExtensions()?.getByName("android") as BaseExtension
+        def productFlavors = androidExt?.getProductFlavors()?.<ProductFlavor>toList() ?: new ArrayList<ProductFlavor>()
+        productFlavors.forEach { productFlavor->
+            result.add(productFlavor.name)
         }
         return result
     }
@@ -42,16 +41,12 @@ class BuildApkPlugin implements Plugin<Project> {
      * @param productFlavorNameList
      */
     private static void createBuildApkTasks(Project project, List<String> productFlavorNameList) {
-        def productFlavorNames = new ArrayList<String>()
+        // 如果没有配置 productFlavor,默认 productFlavorName 为 ""
         if (productFlavorNameList.isEmpty()) {
-            productFlavorNames.add("")
-        } else {
-            productFlavorNameList.forEach { v ->
-                productFlavorNames.add(v)
-            }
+            productFlavorNameList.add("")
         }
-        productFlavorNames.forEach { productFlavorName ->
-            createBuildApkTask(project, productFlavorName)
+        productFlavorNameList.forEach { v ->
+            createBuildApkTask(project, v)
         }
     }
 
