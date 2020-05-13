@@ -57,16 +57,9 @@ class BuildApkPlugin implements Plugin<Project> {
      * @param taskName
      */
     private static void createBuildApkTask(Project project, @NotNull String productFlavorName) {
-        def productFlavorNameUpperCase
-        if (productFlavorName.length() == 0) {
-            productFlavorNameUpperCase = ""
-        } else if (productFlavorName.length() == 1) {
-            productFlavorNameUpperCase = "${productFlavorName.toUpperCase()}"
-        } else {
-            productFlavorNameUpperCase = "${productFlavorName.substring(0, 1).toUpperCase()}${productFlavorName.substring(1)}"
-        }
-        project.task("build${productFlavorNameUpperCase}Apks") {
-            dependsOn("assemble${productFlavorNameUpperCase}Release")
+        String pfnFirstUppercase = StringUtils.firstToUpperCase(productFlavorName)
+        project.task("build${pfnFirstUppercase}Apks") {
+            dependsOn("assemble${pfnFirstUppercase}Release")
             group 'twc'
             doLast {
                 // 获取签名配置
