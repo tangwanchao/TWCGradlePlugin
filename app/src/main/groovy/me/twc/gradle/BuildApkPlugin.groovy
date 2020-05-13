@@ -1,7 +1,9 @@
 package me.twc.gradle
 
-import com.android.build.gradle.BaseExtension
+
+import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
 import com.android.build.gradle.internal.dsl.ProductFlavor
+import com.android.build.gradle.internal.dsl.SigningConfig
 import groovy.json.JsonSlurper
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -26,8 +28,7 @@ class BuildApkPlugin implements Plugin<Project> {
      */
     private static List<String> getProductFlavorNameList(Project project) {
         def result = new ArrayList<String>()
-        def androidExt = project?.getExtensions()?.getByName("android") as BaseExtension
-        def productFlavors = androidExt?.getProductFlavors()?.<ProductFlavor>toList() ?: new ArrayList<ProductFlavor>()
+        def productFlavors = getAppModuleExtension(project)?.getProductFlavors()?.<ProductFlavor>toList() ?: new ArrayList<ProductFlavor>()
         productFlavors.forEach { productFlavor->
             result.add(productFlavor.name)
         }
@@ -248,23 +249,34 @@ class BuildApkPlugin implements Plugin<Project> {
         }
     }
 
+    private static SigningConfig getReleaseSignConfig(Project project) {
+        return getSignConfigByName(project,"release")
+    }
+
+    private static SigningConfig getDebugSignConfig(Project project){
+        return getSignConfigByName(project,"debug")
+    }
+
     /**
      * @param project project
-     * @return release signingConfig map,or null
+     * @param name signingConfig name
+     * @return SigningConfig instance or null
      */
-    private static Map getReleaseSignConfig(Project project) {
-        def result = null
-        def androidProperties = project?.getExtensions()?.getByName("android")?.properties
-        androidProperties.forEach { k, v ->
-            if (k == "signingConfigs") {
-                (v as Set).forEach { signConfig ->
-                    def signConfigProperties = signConfig.properties
-                    if (signConfigProperties.get("name") == "release") {
-                        result = signConfigProperties
-                    }
-                }
+    private static SigningConfig getSignConfigByName(Project project,String name){
+        def signConfigs = getAppModuleExtension(project)?.getSigningConfigs()?.<SigningConfig>toList() ?: new ArrayList<SigningConfig>()
+        for(SigningConfig signConfig in signConfigs){
+            if (signConfig.name == name) {
+                return signConfig
             }
         }
-        return result
+        return null
+    }
+
+    /**
+     * @param project project
+     * @return BaseAppModuleExtension instance or null
+     */
+    private static BaseAppModuleExtension getAppModuleExtension(Project project){
+        return project?.getExtensions()?.getByName("android") as BaseAppModuleExtension
     }
 }
