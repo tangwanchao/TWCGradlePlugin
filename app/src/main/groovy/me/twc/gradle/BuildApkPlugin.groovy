@@ -46,19 +46,97 @@ class BuildApkPlugin implements Plugin<Project> {
             productFlavorNameList.add("")
         }
         productFlavorNameList.forEach { v ->
+            createDebugBuildApkTask(project,v)
             createReleaseBuildApkTask(project, v)
         }
     }
 
     /**
-     * create task by taskName
+     * 创建 debug buildApkTask
+     * @param project
+     * @param productFlavorName
+     */
+    private static void createDebugBuildApkTask(Project project,@NotNull String productFlavorName){
+        String pfnFirstUppercase = StringUtils.firstToUpperCase(productFlavorName)
+        project.task("build${pfnFirstUppercase}DebugApks"){
+            dependsOn("assemble${pfnFirstUppercase}Debug")
+            group 'twc'
+            doLast {
+                // 获取签名配置
+                SigningConfig debugSignConfig = getDebugSignConfig(project)
+                if (debugSignConfig == null){
+                    throw new RuntimeException("你应该在 build.gradle(app) 配置 signingConfigs 并添加 debug 配置")
+                }
+                // 获取构建 apk 配置
+                BuildApkConfig buildApkConfig = project?.getExtensions()?.findByType(BuildApkConfig.class)
+                if (buildApkConfig == null) {
+                    throw new RuntimeException("你应该在 build.gradle(app) 配置 buildApkConfig")
+                }
+                final String debugApkOutPutDirPath = getApkOutputDirPath(project,productFlavorName,"debug")
+                def outputJson = new JsonSlurper().parse(new File("$debugApkOutPutDirPath/output.json")) as ArrayList
+                def inputApkName = (outputJson.get(0) as Map).get("path") as String
+                def inputApkPath = "${debugApkOutPutDirPath}/$inputApkName"
+                final String appNameForProductFlavor = buildApkConfig.getAppNameByProductFlavor(productFlavorName)
+                if (appNameForProductFlavor != null && !appNameForProductFlavor.isEmpty()) {
+                    File renameFile = new File("${debugApkOutPutDirPath}/${appNameForProductFlavor}.apk")
+                    new File(inputApkPath).renameTo(renameFile)
+                    inputApkName = renameFile.name
+                    inputApkPath = renameFile.path
+                }
+                final boolean useProtect = buildApkConfig.use360Protect()
+                if (!useProtect){
+                    throw new RuntimeException("你在干啥? debug 包不使用加固?")
+                }
+
+                def twcDirPath = "${debugApkOutPutDirPath}/twc"
+                // 删除已有文件夹
+                new File(twcDirPath)?.deleteDir()
+                // 创建新文件夹
+                def twcDir = new File(twcDirPath)
+                twcDir.mkdir()
+                def protectDir = new File("protect", twcDir)
+                protectDir.mkdir()
+                def zipDir = new File("zip", twcDir)
+                zipDir.mkdir()
+                try {
+                    println("加固流程开始---")
+                    if (useProtect) {
+                        protect(project, buildApkConfig, inputApkPath, protectDir.path)
+                    } else {
+                        println("跳过加固")
+                    }
+                    println("加固流程完成---")
+
+                    println("签名流程开始---")
+                    if (useProtect) {
+                        def needSignApkFile = protectDir.listFiles()[0]
+                        def zipOutApkFilePath = "${zipDir.path}/${needSignApkFile.name}"
+                        def signedApkFilePath = "${twcDir.path}/${inputApkName.replace(".apk", "_protect_sign.apk")}"
+                        zipalign(project, needSignApkFile.path, zipOutApkFilePath)
+                        signApk(project, debugSignConfig, zipOutApkFilePath, signedApkFilePath)
+                    } else {
+                        println("未使用加固,跳过重新签名流程")
+                        File renameFile = new File(twcDir.path,inputApkName.replace(".apk", "_sign.apk"))
+                        new File(inputApkPath).renameTo(renameFile)
+                    }
+                    println("签名流程结束---")
+                }finally{
+                    protectDir?.deleteDir()
+                    zipDir?.deleteDir()
+                }
+            }
+        }
+    }
+
+    /**
+     * 创建 release buildApkTask
      *
      * @param project
      * @param taskName
      */
     private static void createReleaseBuildApkTask(Project project, @NotNull String productFlavorName) {
         String pfnFirstUppercase = StringUtils.firstToUpperCase(productFlavorName)
-        project.task("build${pfnFirstUppercase}Apks") {
+        project.task("build${pfnFirstUppercase}ReleaseApks") {
             dependsOn("assemble${pfnFirstUppercase}Release")
             group 'twc'
             doLast {
@@ -224,16 +302,16 @@ class BuildApkPlugin implements Plugin<Project> {
     /**
      * 对 apk 进行签名
      */
-    private static signApk(Project project, Map signConfig, String inputApkPath, String outputApkPath) {
+    private static signApk(Project project, SigningConfig signConfig, String inputApkPath, String outputApkPath) {
         project.exec {
             executable = 'apksigner'
             args = ['sign',
-                    '--v1-signing-enabled', signConfig.get("v1SigningEnabled"),
-                    '--v2-signing-enabled', signConfig.get("v2SigningEnabled"),
-                    '--ks', signConfig.get("storeFile"),
-                    '--ks-pass', "pass:${signConfig.get("storePassword")}",
-                    '--ks-key-alias', signConfig.get("keyAlias"),
-                    '--key-pass', "pass:${signConfig.get("keyPassword")}",
+                    '--v1-signing-enabled', signConfig.v1SigningEnabled,
+                    '--v2-signing-enabled', signConfig.v2SigningEnabled,
+                    '--ks', signConfig.storeFile,
+                    '--ks-pass', "pass:${signConfig.storePassword}",
+                    '--ks-key-alias', signConfig.keyAlias,
+                    '--key-pass', "pass:${signConfig.keyPassword}",
                     '--out', outputApkPath,
                     inputApkPath]
         }
