@@ -11,7 +11,7 @@ public class BuildApkConfig {
     private String account;
     // 360 加固密码
     private String password;
-    // APP名字
+    // app 名字
     private String appName;
     // 多个渠道,使用 , 分割
     private String channels;
