@@ -77,8 +77,9 @@ class BuildApkPlugin implements Plugin<Project> {
                 def outputJson = new JsonSlurper().parse(new File("$releaseApkOutPutDirPath/output.json")) as ArrayList
                 def inputApkName = (outputJson.get(0) as Map).get("path") as String
                 def inputApkPath = "${releaseApkOutPutDirPath}/$inputApkName"
-                if (buildApkConfig.appName != null) {
-                    File renameFile = new File("${releaseApkOutPutDirPath}/${buildApkConfig.appName}.apk")
+                String appNameForProductFlavor = buildApkConfig.getAppNameByProductFlavor(productFlavorName)
+                if (appNameForProductFlavor != null && !appNameForProductFlavor.isEmpty()) {
+                    File renameFile = new File("${releaseApkOutPutDirPath}/${appNameForProductFlavor}.apk")
                     new File(inputApkPath).renameTo(renameFile)
                     inputApkName = renameFile.name
                     inputApkPath = renameFile.path

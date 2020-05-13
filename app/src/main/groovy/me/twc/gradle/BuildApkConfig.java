@@ -1,9 +1,11 @@
 package me.twc.gradle;
 
+import java.util.Map;
+
 /**
  * @author 唐万超
- * @date 2020/04/28
  */
+@SuppressWarnings("WeakerAccess")
 public class BuildApkConfig {
     // 360 加固 jar path,配置就使用加固,否则不使用
     private String jarProtectPath;
@@ -13,6 +15,8 @@ public class BuildApkConfig {
     private String password;
     // app 名字
     private String appName;
+    // productFlavor 对应的 app 名字
+    private Map<String,String> appNameForProductFlavor;
     // 多个渠道,使用 , 分割
     private String channels;
     // 腾讯 VasDolly jar path,配置了该属性代表使用多渠道打包,否则不使用多渠道打包
@@ -39,6 +43,22 @@ public class BuildApkConfig {
                 getChannels() != null;
     }
 
+    /**
+     *
+     * @param productFlavor productFlavorName
+     * @return 输出文件的 apk 名称
+     */
+    public String getAppNameByProductFlavor(String productFlavor){
+        if (productFlavor == null || productFlavor.isEmpty()){
+            return getAppName();
+        }
+        Map<String, String> appNameForProductFlavor = getAppNameForProductFlavor();
+        if (appNameForProductFlavor != null && appNameForProductFlavor.containsKey(productFlavor)){
+            return appNameForProductFlavor.get(productFlavor);
+        }
+        return null;
+    }
+
     @Override
     public String toString() {
         return "BuildApkConfig{" +
@@ -46,6 +66,7 @@ public class BuildApkConfig {
                 ", account='" + account + '\'' +
                 ", password='" + password + '\'' +
                 ", appName='" + appName + '\'' +
+                ", appNameForProductFlavor=" + appNameForProductFlavor +
                 ", channels='" + channels + '\'' +
                 ", jarVasDollyPath='" + jarVasDollyPath + '\'' +
                 '}';
@@ -81,6 +102,14 @@ public class BuildApkConfig {
 
     public void setAppName(String appName) {
         this.appName = appName;
+    }
+
+    public Map<String, String> getAppNameForProductFlavor() {
+        return appNameForProductFlavor;
+    }
+
+    public void setAppNameForProductFlavor(Map<String, String> appNameForProductFlavor) {
+        this.appNameForProductFlavor = appNameForProductFlavor;
     }
 
     public String getChannels() {
