@@ -1,6 +1,5 @@
 package me.twc.gradle
 
-
 import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
 import com.android.build.gradle.internal.dsl.ProductFlavor
 import com.android.build.gradle.internal.dsl.SigningConfig
@@ -28,8 +27,8 @@ class BuildApkPlugin implements Plugin<Project> {
      */
     private static List<String> getProductFlavorNameList(Project project) {
         def result = new ArrayList<String>()
-        def productFlavors = getAppModuleExtension(project)?.getProductFlavors()?.<ProductFlavor>toList() ?: new ArrayList<ProductFlavor>()
-        productFlavors.forEach { productFlavor->
+        def productFlavors = getAppModuleExtension(project)?.getProductFlavors()?.<ProductFlavor> toList() ?: new ArrayList<ProductFlavor>()
+        productFlavors.forEach { productFlavor ->
             result.add(productFlavor.name)
         }
         return result
@@ -47,7 +46,7 @@ class BuildApkPlugin implements Plugin<Project> {
             productFlavorNameList.add("")
         }
         productFlavorNameList.forEach { v ->
-            createBuildApkTask(project, v)
+            createReleaseBuildApkTask(project, v)
         }
     }
 
@@ -57,7 +56,7 @@ class BuildApkPlugin implements Plugin<Project> {
      * @param project
      * @param taskName
      */
-    private static void createBuildApkTask(Project project, @NotNull String productFlavorName) {
+    private static void createReleaseBuildApkTask(Project project, @NotNull String productFlavorName) {
         String pfnFirstUppercase = StringUtils.firstToUpperCase(productFlavorName)
         project.task("build${pfnFirstUppercase}Apks") {
             dependsOn("assemble${pfnFirstUppercase}Release")
@@ -70,21 +69,16 @@ class BuildApkPlugin implements Plugin<Project> {
                 }
                 // 获取构建 apk 配置
                 def buildApkConfig = project?.getExtensions()?.findByType(BuildApkConfig.class)
-
-                // 获取 assembleRelease apk 输出文件夹
-                def assembleReleaseOutputDir
-                if (productFlavorName.length() == 0) {
-                    assembleReleaseOutputDir = "${project.buildDir.path}/outputs/apk/release"
-                } else {
-                    assembleReleaseOutputDir = "${project.buildDir.path}/outputs/apk/${productFlavorName}/release"
+                if (buildApkConfig == null) {
+                    throw new RuntimeException("你应该在 build.gradle(app) 配置 buildApkConfig")
                 }
 
-
-                def outputJson = new JsonSlurper().parse(new File("$assembleReleaseOutputDir/output.json")) as ArrayList
+                def releaseApkOutPutDirPath = getApkOutputDirPath(project,productFlavorName,"release")
+                def outputJson = new JsonSlurper().parse(new File("$releaseApkOutPutDirPath/output.json")) as ArrayList
                 def inputApkName = (outputJson.get(0) as Map).get("path") as String
-                def inputApkPath = "${assembleReleaseOutputDir}/$inputApkName"
-                if (buildApkConfig.appName != null){
-                    File renameFile = new File("${assembleReleaseOutputDir}/${buildApkConfig.appName}.apk")
+                def inputApkPath = "${releaseApkOutPutDirPath}/$inputApkName"
+                if (buildApkConfig.appName != null) {
+                    File renameFile = new File("${releaseApkOutPutDirPath}/${buildApkConfig.appName}.apk")
                     new File(inputApkPath).renameTo(renameFile)
                     inputApkName = renameFile.name
                     inputApkPath = renameFile.path
@@ -95,7 +89,7 @@ class BuildApkPlugin implements Plugin<Project> {
                     throw new RuntimeException("你在干啥?多渠道打包功能和加固功能都不使用?")
                 }
 
-                def twcDirPath = "${assembleReleaseOutputDir}/twc"
+                def twcDirPath = "${releaseApkOutPutDirPath}/twc"
                 // 删除已有文件夹
                 new File(twcDirPath)?.deleteDir()
                 // 创建新文件夹
@@ -112,21 +106,21 @@ class BuildApkPlugin implements Plugin<Project> {
                     println("加固流程开始---")
                     if (useProtect) {
                         protect(project, buildApkConfig, inputApkPath, protectDir.path)
-                    }else{
+                    } else {
                         println("跳过加固")
                     }
                     println("加固流程完成---")
 
                     println("签名流程开始---")
-                    if (useProtect){
+                    if (useProtect) {
                         def needSignApkFile = protectDir.listFiles()[0]
                         def zipOutApkFilePath = "${zipDir.path}/${needSignApkFile.name}"
-                        def signedApkFilePath = "${signDir.path}/${inputApkName.replace(".apk","_protect_sign.apk")}"
-                        zipalign(project,needSignApkFile.path,zipOutApkFilePath)
-                        signApk(project,releaseSignConfig,zipOutApkFilePath,signedApkFilePath)
-                    }else{
+                        def signedApkFilePath = "${signDir.path}/${inputApkName.replace(".apk", "_protect_sign.apk")}"
+                        zipalign(project, needSignApkFile.path, zipOutApkFilePath)
+                        signApk(project, releaseSignConfig, zipOutApkFilePath, signedApkFilePath)
+                    } else {
                         println("未使用加固,跳过重新签名流程,将使用原始 apk 进行多渠道打包")
-                        File renameFile = new File(inputApkPath.replace(".apk","_sign.apk"))
+                        File renameFile = new File(inputApkPath.replace(".apk", "_sign.apk"))
                         new File(inputApkPath).renameTo(renameFile)
                         inputApkName = renameFile.name
                         inputApkPath = renameFile.path
@@ -141,11 +135,11 @@ class BuildApkPlugin implements Plugin<Project> {
                         } else {
                             channelsInputApkPath = inputApkPath
                         }
-                        channels(project, buildApkConfig, channelsInputApkPath,twcDir.path)
+                        channels(project, buildApkConfig, channelsInputApkPath, twcDir.path)
                     } else {
                         println("跳过多渠道打包---")
                         def signedApkFile = signDir.listFiles()[0]
-                        if(!signedApkFile.renameTo(new File(signedApkFile.name,twcDir))){
+                        if (!signedApkFile.renameTo(new File(signedApkFile.name, twcDir))) {
                             throw new RuntimeException("移动文件失败")
                         }
                     }
@@ -205,7 +199,7 @@ class BuildApkPlugin implements Plugin<Project> {
         project.exec {
             executable = 'java'
             args = ['-jar', config.getJarVasDollyPath(),
-                    "put","-c", config.getChannels(), inputApkPath, outputDirPath]
+                    "put", "-c", config.getChannels(), inputApkPath, outputDirPath]
         }
         println("VasDolly 多渠道打包完成---")
     }
@@ -233,13 +227,13 @@ class BuildApkPlugin implements Plugin<Project> {
         project.exec {
             executable = 'apksigner'
             args = ['sign',
-                    '--v1-signing-enabled',signConfig.get("v1SigningEnabled"),
-                    '--v2-signing-enabled',signConfig.get("v2SigningEnabled"),
-                    '--ks',signConfig.get("storeFile"),
-                    '--ks-pass',"pass:${signConfig.get("storePassword")}",
-                    '--ks-key-alias',signConfig.get("keyAlias"),
-                    '--key-pass',"pass:${signConfig.get("keyPassword")}",
-                    '--out',outputApkPath,
+                    '--v1-signing-enabled', signConfig.get("v1SigningEnabled"),
+                    '--v2-signing-enabled', signConfig.get("v2SigningEnabled"),
+                    '--ks', signConfig.get("storeFile"),
+                    '--ks-pass', "pass:${signConfig.get("storePassword")}",
+                    '--ks-key-alias', signConfig.get("keyAlias"),
+                    '--key-pass', "pass:${signConfig.get("keyPassword")}",
+                    '--out', outputApkPath,
                     inputApkPath]
         }
         project.exec {
@@ -250,11 +244,11 @@ class BuildApkPlugin implements Plugin<Project> {
     }
 
     private static SigningConfig getReleaseSignConfig(Project project) {
-        return getSignConfigByName(project,"release")
+        return getSignConfigByName(project, "release")
     }
 
-    private static SigningConfig getDebugSignConfig(Project project){
-        return getSignConfigByName(project,"debug")
+    private static SigningConfig getDebugSignConfig(Project project) {
+        return getSignConfigByName(project, "debug")
     }
 
     /**
@@ -262,9 +256,9 @@ class BuildApkPlugin implements Plugin<Project> {
      * @param name signingConfig name
      * @return SigningConfig instance or null
      */
-    private static SigningConfig getSignConfigByName(Project project,String name){
-        def signConfigs = getAppModuleExtension(project)?.getSigningConfigs()?.<SigningConfig>toList() ?: new ArrayList<SigningConfig>()
-        for(SigningConfig signConfig in signConfigs){
+    private static SigningConfig getSignConfigByName(Project project, String name) {
+        def signConfigs = getAppModuleExtension(project)?.getSigningConfigs()?.<SigningConfig> toList() ?: new ArrayList<SigningConfig>()
+        for (SigningConfig signConfig in signConfigs) {
             if (signConfig.name == name) {
                 return signConfig
             }
@@ -276,7 +270,21 @@ class BuildApkPlugin implements Plugin<Project> {
      * @param project project
      * @return BaseAppModuleExtension instance or null
      */
-    private static BaseAppModuleExtension getAppModuleExtension(Project project){
+    private static BaseAppModuleExtension getAppModuleExtension(Project project) {
         return project?.getExtensions()?.getByName("android") as BaseAppModuleExtension
+    }
+
+    /**
+     *
+     * @param project
+     * @param productFlavorName productFlavorName or "",""代表没有 productFlavorName
+     * @return 系统构建 apk 输出路径
+     */
+    private static String getApkOutputDirPath(Project project, String productFlavorName,String buildType) {
+        if (productFlavorName.length() == 0) {
+            return "${project.buildDir.path}/outputs/apk/$buildType"
+        } else {
+            return "${project.buildDir.path}/outputs/apk/${productFlavorName}/$buildType"
+        }
     }
 }
