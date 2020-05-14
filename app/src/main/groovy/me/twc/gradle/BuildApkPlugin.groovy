@@ -1,6 +1,7 @@
 package me.twc.gradle
 
 import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
+import com.android.build.gradle.internal.dsl.BuildType
 import com.android.build.gradle.internal.dsl.ProductFlavor
 import com.android.build.gradle.internal.dsl.SigningConfig
 import groovy.json.JsonSlurper
@@ -323,23 +324,23 @@ class BuildApkPlugin implements Plugin<Project> {
     }
 
     private static SigningConfig getReleaseSignConfig(Project project) {
-        return getSignConfigByName(project, "release")
+        return getSignConfigByBuildTypeName(project, "release")
     }
 
     private static SigningConfig getDebugSignConfig(Project project) {
-        return getSignConfigByName(project, "debug")
+        return getSignConfigByBuildTypeName(project, "debug")
     }
 
     /**
      * @param project project
-     * @param name signingConfig name
+     * @param buildTypeName buildTypeName
      * @return SigningConfig instance or null
      */
-    private static SigningConfig getSignConfigByName(Project project, String name) {
-        def signConfigs = getAppModuleExtension(project)?.getSigningConfigs()?.<SigningConfig> toList() ?: new ArrayList<SigningConfig>()
-        for (SigningConfig signConfig in signConfigs) {
-            if (signConfig.name == name) {
-                return signConfig
+    private static SigningConfig getSignConfigByBuildTypeName(Project project, String buildTypeName) {
+        def buildTypes = getAppModuleExtension(project)?.getBuildTypes()?.<BuildType>toList() ?: new ArrayList<BuildType>()
+        for(BuildType buildType in buildTypes){
+            if (buildType.name == buildTypeName){
+                return buildType.signingConfig
             }
         }
         return null
