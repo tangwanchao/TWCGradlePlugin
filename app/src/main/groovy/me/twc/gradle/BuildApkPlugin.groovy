@@ -85,8 +85,9 @@ class BuildApkPlugin implements Plugin<Project> {
                     inputApkPath = renameFile.path
                 }
                 final boolean useProtect = buildApkConfig.use360Protect()
-                if (!useProtect){
-                    throw new RuntimeException("你在干啥? debug 包不使用加固?")
+                final boolean usePgyer = buildApkConfig.usePgyer()
+                if (!useProtect && !usePgyer){
+                    throw new RuntimeException("你在干啥? debug 包蒲公英和加固都不实用?")
                 }
 
                 def twcDirPath = "${debugApkOutPutDirPath}/twc"
@@ -121,6 +122,18 @@ class BuildApkPlugin implements Plugin<Project> {
                         new File(inputApkPath).renameTo(renameFile)
                     }
                     println("签名流程结束---")
+
+                    assert twcDir.size() == 1
+                    assert twcDir.listFiles()[0].path.endsWith(".apk")
+                    println("上传到蒲公英流程开始---")
+                    if (usePgyer){
+                        String uploadPath = twcDir.listFiles()[0].path
+                        uploadToPgyer(project,uploadPath,buildApkConfig.getPgyerApiKey())
+                    }else{
+                        println("不使用蒲公英内测")
+                    }
+                    println("上传到蒲公英流程结束---")
+
                 }finally{
                     protectDir?.deleteDir()
                     zipDir?.deleteDir()
@@ -366,5 +379,25 @@ class BuildApkPlugin implements Plugin<Project> {
         } else {
             return "${project.buildDir.path}/outputs/apk/${productFlavorName}/$buildType"
         }
+    }
+
+    /**
+     * 上传应用到蒲公英
+     * @param project
+     * @param uploadFilePath
+     */
+    private static void uploadToPgyer(Project project,String uploadFilePath,String _api_key){
+        println("开始上传到蒲公英---")
+        project.exec {
+            setCommandLine([
+                    'curl',
+                    '-F',
+                    "file=@$uploadFilePath",
+                    '-F',
+                    "_api_key=$_api_key",
+                    'https://www.pgyer.com/apiv2/app/upload'
+            ])
+        }
+        println("上传到蒲公英完成---")
     }
 }

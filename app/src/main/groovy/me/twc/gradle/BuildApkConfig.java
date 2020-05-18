@@ -21,6 +21,8 @@ public class BuildApkConfig {
     private String channels;
     // 腾讯 VasDolly jar path,配置了该属性代表使用多渠道打包,否则不使用多渠道打包
     private String jarVasDollyPath;
+    // 蒲公英 _api_key
+    private String pgyerApiKey;
 
 
     /**
@@ -41,6 +43,14 @@ public class BuildApkConfig {
     public boolean useChannels(){
         return getJarVasDollyPath() != null &&
                 getChannels() != null;
+    }
+
+    /**
+     * @return [true : 使用蒲公英内测上传]
+     */
+    public boolean usePgyer(){
+        String apiKey = getPgyerApiKey();
+        return apiKey != null && !apiKey.isEmpty();
     }
 
     /**
@@ -69,6 +79,7 @@ public class BuildApkConfig {
                 ", appNameForProductFlavor=" + appNameForProductFlavor +
                 ", channels='" + channels + '\'' +
                 ", jarVasDollyPath='" + jarVasDollyPath + '\'' +
+                ", pgyerApiKey='" + pgyerApiKey + '\'' +
                 '}';
     }
 
@@ -126,5 +137,13 @@ public class BuildApkConfig {
 
     public void setJarVasDollyPath(String jarVasDollyPath) {
         this.jarVasDollyPath = jarVasDollyPath;
+    }
+
+    public String getPgyerApiKey() {
+        return pgyerApiKey;
+    }
+
+    public void setPgyerApiKey(String pgyerApiKey) {
+        this.pgyerApiKey = pgyerApiKey;
     }
 }
