@@ -123,7 +123,7 @@ class BuildApkPlugin implements Plugin<Project> {
                     }
                     println("签名流程结束---")
 
-                    assert twcDir.size() == 1
+                    assert twcDir.listFiles().size() == 1
                     assert twcDir.listFiles()[0].path.endsWith(".apk")
                     println("上传到蒲公英流程开始---")
                     if (usePgyer){
