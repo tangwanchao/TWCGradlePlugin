@@ -12,9 +12,10 @@
 3. [VasDolly jar](https://github.com/Tencent/VasDolly)
 
 ## 功能
-1. 360 加固   
-2. VasDolly 多渠道打包
-3. 支持 productFlavors 配置
+1. 360 加固(debug,release)
+2. VasDolly 多渠道打包(release)
+3. 支持 productFlavors 配置(debug,release)
+4. 自动上传到蒲公英内测分发(debug)
 
 ## 使用
 
@@ -40,6 +41,7 @@ android{
 // 如果使用加固功能，需要配置 jarProtectPath，account，password
 // 如果使用多渠道打包功能，需要配置 channels，jarVasDollyPath
 // 两个功能至少选择一个使用，可同时选择使用。
+// 蒲公英内测分发只支持 Debug 包
 buildApkConfig {
     // 360 加固 jar 路径
     jarProtectPath ''
@@ -53,6 +55,13 @@ buildApkConfig {
     jarVasDollyPath ''
     // app 名字,可选
     appName ''
+    // ProductFlavor 对应 app 名字,优先级高于 appName,可选
+    appNameForProductFlavor = [
+            "youpin":"同城帮优品",
+            "suning":"苏宁二手优品"
+    ]
+    // 蒲公英内测分发 _api_key,可选
+    pgyerApiKey '0ba448e57fa33fd010f97b8498afd854'
 }
 ```
 3. sync，之后 gradle 工具窗口将会出现相关任务
