@@ -132,7 +132,7 @@ class BuildApkPlugin implements Plugin<Project> {
                     assert apkListFiles.length == 1
                     println("上传到蒲公英流程开始---")
                     if (usePgyer){
-                        String uploadPath = twcDir.listFiles()[0].path
+                        String uploadPath = apkListFiles[0].path
                         uploadToPgyer(project,uploadPath,buildApkConfig.getPgyerApiKey())
                     }else{
                         println("不使用蒲公英内测")
@@ -322,6 +322,7 @@ class BuildApkPlugin implements Plugin<Project> {
      * 对 apk 进行签名
      */
     private static signApk(Project project, SigningConfig signConfig, String inputApkPath, String outputApkPath) {
+        println("签名信息:$signConfig")
         project.exec {
             executable = 'apksigner'
             args = ['sign',
@@ -393,6 +394,8 @@ class BuildApkPlugin implements Plugin<Project> {
      */
     private static void uploadToPgyer(Project project,String uploadFilePath,String _api_key){
         println("开始上传到蒲公英---")
+        println("uploadFilePath = $uploadFilePath")
+        println("_api_key = $_api_key")
         project.exec {
             setCommandLine([
                     'curl',
@@ -403,6 +406,7 @@ class BuildApkPlugin implements Plugin<Project> {
                     'https://www.pgyer.com/apiv2/app/upload'
             ])
         }
+        println()
         println("上传到蒲公英完成---")
     }
 }
