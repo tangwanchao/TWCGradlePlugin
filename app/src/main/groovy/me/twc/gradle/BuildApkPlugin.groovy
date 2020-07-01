@@ -4,7 +4,6 @@ import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
 import com.android.build.gradle.internal.dsl.BuildType
 import com.android.build.gradle.internal.dsl.ProductFlavor
 import com.android.build.gradle.internal.dsl.SigningConfig
-import groovy.json.JsonSlurper
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.jetbrains.annotations.NotNull
@@ -74,8 +73,7 @@ class BuildApkPlugin implements Plugin<Project> {
                     throw new RuntimeException("你应该在 build.gradle(app) 配置 buildApkConfig")
                 }
                 final String debugApkOutPutDirPath = getApkOutputDirPath(project,productFlavorName,"debug")
-                def outputJson = new JsonSlurper().parse(new File("$debugApkOutPutDirPath/output.json")) as ArrayList
-                def inputApkName = (outputJson.get(0) as Map).get("path") as String
+                def inputApkName = FileUtil.getLatestApkName(debugApkOutPutDirPath)
                 def inputApkPath = "${debugApkOutPutDirPath}/$inputApkName"
                 final String appNameForProductFlavor = buildApkConfig.getAppNameByProductFlavor(productFlavorName)
                 if (appNameForProductFlavor != null && !appNameForProductFlavor.isEmpty()) {
@@ -170,9 +168,8 @@ class BuildApkPlugin implements Plugin<Project> {
                     throw new RuntimeException("你应该在 build.gradle(app) 配置 buildApkConfig")
                 }
 
-                def releaseApkOutPutDirPath = getApkOutputDirPath(project,productFlavorName,"release")
-                def outputJson = new JsonSlurper().parse(new File("$releaseApkOutPutDirPath/output.json")) as ArrayList
-                def inputApkName = (outputJson.get(0) as Map).get("path") as String
+                String releaseApkOutPutDirPath = getApkOutputDirPath(project,productFlavorName,"release")
+                def inputApkName = FileUtil.getLatestApkName(releaseApkOutPutDirPath)
                 def inputApkPath = "${releaseApkOutPutDirPath}/$inputApkName"
                 String appNameForProductFlavor = buildApkConfig.getAppNameByProductFlavor(productFlavorName)
                 if (appNameForProductFlavor != null && !appNameForProductFlavor.isEmpty()) {
