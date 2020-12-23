@@ -23,6 +23,8 @@ public class BuildApkConfig {
     private String jarVasDollyPath;
     // 蒲公英 _api_key
     private String pgyerApiKey;
+    // 是否支持 x86
+    private boolean supportX86;
 
 
     /**
@@ -67,20 +69,6 @@ public class BuildApkConfig {
             return appNameForProductFlavor.get(productFlavor);
         }
         return null;
-    }
-
-    @Override
-    public String toString() {
-        return "BuildApkConfig{" +
-                "jarProtectPath='" + jarProtectPath + '\'' +
-                ", account='" + account + '\'' +
-                ", password='" + password + '\'' +
-                ", appName='" + appName + '\'' +
-                ", appNameForProductFlavor=" + appNameForProductFlavor +
-                ", channels='" + channels + '\'' +
-                ", jarVasDollyPath='" + jarVasDollyPath + '\'' +
-                ", pgyerApiKey='" + pgyerApiKey + '\'' +
-                '}';
     }
 
     public String getJarProtectPath() {
@@ -145,5 +133,28 @@ public class BuildApkConfig {
 
     public void setPgyerApiKey(String pgyerApiKey) {
         this.pgyerApiKey = pgyerApiKey;
+    }
+
+    public boolean isSupportX86() {
+        return supportX86;
+    }
+
+    public void setSupportX86(boolean supportX86) {
+        this.supportX86 = supportX86;
+    }
+
+    @Override
+    public String toString() {
+        return "BuildApkConfig{" +
+                "jarProtectPath='" + jarProtectPath + '\'' +
+                ", account='" + account + '\'' +
+                ", password='" + password + '\'' +
+                ", appName='" + appName + '\'' +
+                ", appNameForProductFlavor=" + appNameForProductFlavor +
+                ", channels='" + channels + '\'' +
+                ", jarVasDollyPath='" + jarVasDollyPath + '\'' +
+                ", pgyerApiKey='" + pgyerApiKey + '\'' +
+                ", supportX86=" + supportX86 +
+                '}';
     }
 }
