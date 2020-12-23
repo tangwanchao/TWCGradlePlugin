@@ -271,7 +271,7 @@ class BuildApkPlugin implements Plugin<Project> {
             args = ['-jar', config.getJarProtectPath(),
                     '-config']
             if (config.isSupportX86()){
-                args.add('-x86')
+                args('-x86')
             }
         }
         println("执行加固-初始化配置成功")
